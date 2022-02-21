@@ -266,3 +266,221 @@ Dotplot_Zhiwei_Version(final_seurat_object_integrated,LPO_list_supplement)
 
 
 
+## Figure 3
+```{r}
+your_mount_point <- "/Volumes/umms-spencejr/"
+sample_lists <- c("5178-1","5178-2")
+sample_species <- "human"
+qc_max_mito <- ifelse(sample_species == "human", 10, 5)
+
+metadata_table <- as.data.frame(read_xls(paste(your_mount_point,
+                                '01_RNAseq_RAW_Data/single_cell_meta_data_table_excel.xls',
+                                sep = ''), col_names = FALSE))
+
+colnames(metadata_table)[1:12] <- c("sample_ID","sample_path","age","tissue","gel","media","sex",
+                                   "sampleName","dataset","EGF_treatment","NRG1_treatment","EREG_treatment")
+
+metadata_table <- as.data.frame(lapply(metadata_table, function(x) gsub(".*:", "", x)))
+
+sample_paths <- paste(your_mount_point,subset(metadata_table, sample_ID %in% sample_lists)[,2],sep='')
+
+seurat_source_list <- lapply(sample_paths, function(x) Seurat::Read10X_h5(filename = x, use.names = TRUE, unique.features = TRUE))
+
+
+names(seurat_source_list) <- sample_lists
+
+
+seurat_object_list <- lapply(seq_along(seurat_source_list),
+                            function(i) Seurat::CreateSeuratObject(counts = seurat_source_list[[i]],
+                                                                   project = names(seurat_source_list)[i]))
+rm(seurat_source_list)
+
+final_seurat_object <- merge(seurat_object_list[[1]], 
+                            y = seurat_object_list[2:length(seurat_object_list)])
+
+final_seurat_object[["percent.mt"]] <- ifelse(sample_species == "human",
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^MT-"),
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^mt-"))
+
+qc_min_genes <- 200
+qc_min_counts <- 200
+qc_max_genes <- 9500
+qc_max_counts <- 50000
+
+
+final_seurat_object <- subset(final_seurat_object, subset = nFeature_RNA >= qc_min_genes &
+                                nFeature_RNA <= qc_max_genes & percent.mt <= qc_max_mito &
+                                nCount_RNA >= qc_min_counts & nCount_RNA <= qc_max_counts)
+
+final_seurat_object <- SplitObject(final_seurat_object, split.by = "orig.ident")
+
+set.seed(888)
+for (i in 1:length(final_seurat_object)) {
+    final_seurat_object[[i]] <- SCTransform(final_seurat_object[[i]], 
+                                            verbose = FALSE, vars.to.regress = "percent.mt")
+}
+
+final_seurat_object_features <- SelectIntegrationFeatures(object.list = final_seurat_object, 
+                                                          nfeatures = 3000)
+final_seurat_object <- PrepSCTIntegration(object.list = final_seurat_object, 
+                                          anchor.features = final_seurat_object_features)
+
+final_seurat_object_anchors <- FindIntegrationAnchors(object.list = final_seurat_object, 
+                                           normalization.method = "SCT", 
+                                           anchor.features = final_seurat_object_features)
+
+final_seurat_object_integrated <- IntegrateData(anchorset = final_seurat_object_anchors, 
+                                     normalization.method = "SCT")
+
+set.seed(888)
+final_seurat_object_integrated <- RunPCA(final_seurat_object_integrated, verbose = FALSE)
+final_seurat_object_integrated <- RunUMAP(final_seurat_object_integrated, dims = 1:30)
+final_seurat_object_integrated <- FindNeighbors(final_seurat_object_integrated, dims = 1:30)
+final_seurat_object_integrated <- FindClusters(final_seurat_object_integrated, resolution = 0.2, algorithm = 4)
+DefaultAssay(final_seurat_object_integrated) <- "RNA"
+final_seurat_object_integrated <- NormalizeData(final_seurat_object_integrated, 
+                                            normalization.method = "LogNormalize", scale.factor =10000)
+
+Dotplot_Zhiwei_Version(final_seurat_object_integrated,LPO_list_supplement)
+FeaturePlot(final_seurat_object_integrated, features = LPO_list_supplement,raster = FALSE,
+            slot = "data",pt.size = 0.4,order=TRUE) & RotatedAxis() & scale_colour_gradientn(colors =                                                                                  c("lightgrey","#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58")) &   xlab("UMAP1") & ylab("UMAP2")
+```
+
+
+
+
+## Cell Scoring Figures
+```{r,message=FALSE,warning=FALSE}
+your_mount_point <- "/Volumes/umms-spencejr/"
+sample_lists <- c("4511-1","4511-2","4511-3","4511-4","4511-5")
+sample_species <- "human"
+qc_max_mito <- ifelse(sample_species == "human", 10, 5)
+
+
+metadata_table <- as.data.frame(read_xls(paste(your_mount_point,
+                                '01_RNAseq_RAW_Data/single_cell_meta_data_table_excel.xls',
+                                sep = ''), col_names = FALSE))
+
+colnames(metadata_table)[1:12] <- c("sample_ID","sample_path","age","tissue","gel","media","sex",
+                                   "sampleName","dataset","EGF_treatment","NRG1_treatment","EREG_treatment")
+
+metadata_table <- as.data.frame(lapply(metadata_table, function(x) gsub(".*:", "", x)))
+
+sample_paths <- paste(your_mount_point,subset(metadata_table, sample_ID %in% sample_lists)[,2],sep='')
+
+seurat_source_list <- lapply(sample_paths, function(x) Seurat::Read10X_h5(filename = x, use.names = TRUE, unique.features = TRUE))
+
+
+names(seurat_source_list) <- c("3-week LPOs (NKX2-1-extracted)","3-week LPOs (NKX2-1-extracted)",
+                               "6-week LPOs (NKX2-1-extracted)","6-week LPOs (NKX2-1-extracted)",
+                               "10-week LPOs (NKX2-1-extracted)")
+
+
+seurat_object_list <- lapply(seq_along(seurat_source_list),
+                            function(i) Seurat::CreateSeuratObject(counts = seurat_source_list[[i]],
+                                                                   project = names(seurat_source_list)[i]))
+rm(seurat_source_list)
+
+
+final_seurat_object <- merge(seurat_object_list[[1]], 
+                            y = seurat_object_list[2:length(seurat_object_list)])
+
+rm(seurat_object_list)
+
+ac1_to_ac5_NKX_positive_cells <- colnames(final_seurat_object[["RNA"]]@counts[,final_seurat_object[["RNA"]]@counts["NKX2-1",]!=0])
+
+final_seurat_object <- final_seurat_object[,colnames(final_seurat_object) %in% ac1_to_ac5_NKX_positive_cells]
+
+positive_reference_seurat_source <- Seurat::Read10X_h5(filename = "/Volumes/umms-spencejr/01_RAW_RNASEQ_AGC_SHARE/MiStorage Transfer/Run_2402/Sample_HT145-3F-redo/outs/filtered_gene_bc_matrices_h5.h5", use.names = TRUE, unique.features = TRUE)
+positive_reference_seurat_object <- Seurat::CreateSeuratObject(counts = positive_reference_seurat_source,
+                                                                   project = "Human Fetal Bud Tip Organoids")
+
+final_seurat_object <- merge(final_seurat_object, 
+                            y = c(positive_reference_seurat_object))
+
+final_seurat_object[["percent.mt"]] <- ifelse(sample_species == "human",
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^MT-"),
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^mt-"))
+
+qc_min_genes= 200
+qc_min_counts = 200
+qc_max_genes = 9500
+qc_max_counts = 60000
+
+
+final_seurat_object <- subset(final_seurat_object, subset = nFeature_RNA >= qc_min_genes &
+                                nFeature_RNA <= qc_max_genes & percent.mt <= qc_max_mito &
+                                nCount_RNA >= qc_min_counts & nCount_RNA <= qc_max_counts)
+
+
+final_seurat_object_361014_integrated_bud_tip_cluster <- readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/final_seurat_object_361014_integrated_bud_tip_cluster_updated.rds")
+
+levels(final_seurat_object_361014_integrated_bud_tip_cluster@active.ident) <- rep("In vivo Bud Tip",2)
+final_seurat_object_361014_integrated_bud_tip_cluster$orig.ident <- "In vivo Bud Tip"
+
+final_seurat_object_361014_integrated_basal_cluster <-
+  readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/final_seurat_object_361014_integrated_basal_cluster_updated.rds")
+
+levels(final_seurat_object_361014_integrated_basal_cluster@active.ident) <- rep("In vivo Basal Cell",2)
+final_seurat_object_361014_integrated_basal_cluster$orig.ident <- "In vivo Basal Cell"
+
+
+final_seurat_object_361014_integrated_neuroendocrine_cluster <- 
+  readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/final_seurat_object_361014_integrated_neuroendocrine_cluster.rds")
+
+levels(final_seurat_object_361014_integrated_neuroendocrine_cluster@active.ident) <- rep("In vivo Neuroendocrine",2)
+final_seurat_object_361014_integrated_neuroendocrine_cluster$orig.ident <- "In vivo Neuroendocrine"
+
+
+ansley_renee_5178_1_object <- readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/ansley_renee_5178-1_object.rds")
+levels(ansley_renee_5178_1_object@active.ident) <- rep("iBTOs(10-week Sorted)",4)
+ansley_renee_5178_1_object$orig.ident <- "iBTOs(10-week Sorted)"
+
+ansley_renee_5178_2_object <- readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/ansley_renee_5178-2_object.rds")
+levels(ansley_renee_5178_2_object@active.ident) <- rep("iBTOs(4-week Sorted)",4)
+ansley_renee_5178_2_object$orig.ident <- "iBTOs(4-week Sorted)"
+
+
+final_seurat_object_integrated_4511_combined <- readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/final_seurat_object_integrated_4511_combined.rds")
+levels(final_seurat_object_integrated_4511_combined@active.ident) <- rep("3 - 10-week Whole LPOs",7)
+final_seurat_object_integrated_4511_combined$orig.ident <- "3 - 10-week Whole LPOs"
+
+final_seurat_object <- merge(final_seurat_object, 
+                            y = c(final_seurat_object_361014_integrated_bud_tip_cluster,final_seurat_object_361014_integrated_basal_cluster,
+                                  final_seurat_object_361014_integrated_neuroendocrine_cluster,
+                                  ansley_renee_5178_1_object,
+                                  ansley_renee_5178_2_object,
+                                  final_seurat_object_integrated_4511_combined))
+
+set.seed(888)
+DefaultAssay(final_seurat_object) <- "RNA"
+final_seurat_object <- NormalizeData(final_seurat_object, 
+                                            normalization.method = "LogNormalize", scale.factor =10000)
+
+
+bud_tip_cell_scoring_list <- list(readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/bud_tip_cell_scoring_list.rds"))
+
+basal_cell_scoring_list <- list(readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/basal_cell_scoring_list.rds"))
+
+neuroendocrine_cell_scoring_list <- list(readRDS("/Users/zhiweixiao/Documents/Seurat_Objects/neuroendocrine_cell_scoring_list.rds"))
+
+
+set.seed(888)
+final_seurat_object <-AddModuleScore(final_seurat_object, features = bud_tip_cell_scoring_list, 
+                                     name = "bud tip cell scoring list", search = TRUE, assay = "RNA")
+
+final_seurat_object <-AddModuleScore(final_seurat_object, features = basal_cell_scoring_list, 
+                                     name = "basal cell scoring list", search = TRUE, assay = "RNA")
+
+final_seurat_object <- AddModuleScore(final_seurat_object, features = neuroendocrine_cell_scoring_list, 
+                                     name = "neuroendocrine cell scoring list", search = TRUE, assay = "RNA")
+
+Idents(final_seurat_object) <- factor(x = Idents(final_seurat_object), 
+                                      levels =c("3 - 10-week Whole LPOs","3-week LPOs (NKX2-1-extracted)",
+                                                "6-week LPOs (NKX2-1-extracted)","10-week LPOs (NKX2-1-extracted)",
+                                                "iBTOs(4-week Sorted)","iBTOs(10-week Sorted)","Human Fetal Bud Tip Organoids","In vivo Bud Tip","In vivo Basal Cell","In vivo Neuroendocrine"))
+
+
+VlnPlot(object = final_seurat_object, split.by="orig.ident",features = 'bud.tip.cell.scoring.list1') + theme(legend.position="none", axis.title.x = element_blank())
+```
+
