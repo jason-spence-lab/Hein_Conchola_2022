@@ -148,10 +148,121 @@ DotPlot(seurat_object, features = gene_list) + RotatedAxis() +
   
 }
 
+
+
+## plotting, using spheroid_list_supplement_final2 gene list as an example
+
 Dotplot_Zhiwei_Version(final_seurat_object,spheroid_list_supplement_final2)
 
 FeaturePlot(final_seurat_object, features = spheroid_list_supplement_final2,raster = FALSE,
             slot = "data",pt.size = 0.6,order = TRUE) & RotatedAxis() & scale_colour_gradientn(colors =                                                                                  c("lightgrey","#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58")) &   xlab("UMAP1") & ylab("UMAP2")
 
 ```
+
+
+
+## Figure 2
+```{r,message=FALSE,warning=FALSE}
+your_mount_point <- "/Volumes/umms-spencejr/"
+sample_lists <- c("4511-1","4511-2","4511-3","4511-4","4511-5")
+sample_species <- "human"
+qc_max_mito <- ifelse(sample_species == "human", 10, 5)
+
+
+general_cell_type_list <- c("EPCAM", "KRT18", "KRT8", "CLDN6", "VIM", "POSTN", "DCN", "TCF21", "COL1A2", "COL3A1", "TAGLN", "ACTA2", "PDGFRB", "PTPRC", "CD37", "CORO1A", "LCP1", "CD53", "LAPTM5", "CDH5", "CLDN5", "ESAM", "KDR", "FLT1", "S100B", "ELAVL4", "TUBB2B", "STMN2", "ASCL1", "NNAT", "GRP", "MPZ", "MKI67", "TOP2A", "CDK1", "TYMS", "H2AFZ", "STMN1", "LGR5")
+
+cell_lineage_list <- c("NKX2-1", "CDX2", "PAX8", "PDX1", "HHEX", "NES", "SOX1", "PAX6", "SOX17", "FOXA2", "SOX2", "HES1", "IRX1")
+
+bud_tip_list <- c("SOX9", "CPM", "FGF20", "SOX11", "HMGB2", "NPC2", "LGR5", "ETV5", "ETV4", "RNF43", "ZNRF3", "TESC")
+
+lung_epithelium_list <- c("SOX9", "SFTPC", "NPC2", "TESC", "CA2", "ETV5", "SOX2", "TP63", "KRT5", "KRT15", "IL33", "FOXL1", "FOXJ1", "CHGA", "SYN1", "MUC5AC", "MUC5B", "FOXA3", "SCGB1A1", "BPIFA1", "SCGB3A2", "CFTR", "SFTPB", "HOPX", "PDPN", "AQP5", "AGER", "ABCA3", "ASCL1")
+
+
+LPO_list_supplement <- c("EPCAM", "KRT18", "KRT8", "CLDN6", "POSTN", "DCN", "COL1A2", "COL3A1", "CDH5", "CLDN5", "ESAM", "KDR", "S100B", "ELAVL4", "STMN2", "ASCL1", "MKI67", "TOP2A", "CDK1")
+
+
+Charlie_list <- c("CDX2","LGR5","OLFM4","DEFA5","MUC2","CHGA","DPP4","SI","BEST4","NKX2-1")
+
+
+heatmap_list <- c("FABP1", "RBP2", "GSTA1", "PHGR1", "MTTP", "AMN", "ANPEP", "PRAP1", "NOSTRIN", "SLC51A", "SLC51B", "MEP1A", "ACSL5", "CDX1", "CDX2", "KRT17", "IGF2", "ISL1", "LUZP2", "TNNT3", "ARL4C", "CD48", "SEMA3D", "GATA3", "NECTIN4", "HOXD13", "UPK2", "HOXD11", "CPA6", "PDPN", "THBS1", "TPPP3", "CPM", "TESC", "NKX2-1", "SFTA3", "TGFB2", "FGF20", "WNT7B", "ETV5", "FOXA2", "LIFR", "SP5", "FZD2", "SERPINF1", "COL3A1", "COL1A2", "COL1A1", "VIM", "COL6A2", "LUM", "COL6A3", "COL6A1", "TWIST1", "WNT5A", "CDH11", "MMP11", "PTCH1", "COL5A2", "DCN", "CHGA", "NEUROD1", "STMN2", "FEV", "PCSK1", "OR51E1", "SCG2", "PAX4", "ASCL1", "SCG3", "CLPS", "KCNH6", "CHGB", "NKX2-2", "KIF19", "FCGBP", "CLCA1", "MUC2", "DLL1", "BCAS1", "SPDEF", "AGXT", "LRRC26", "CAPN9", "GUCA2B", "RAB26", "FRZB", "ANO1", "DLL4", "WNT4", "CA7", "SPIB", "OTOP2", "BEST4", "AIF1", "DMBT1", "GUCA2B", "LGALS9", "CTSE", "CA4", "CARD16", "REN", "NEURL1", "CA3", "ADCY5")
+
+
+metadata_table <- as.data.frame(read_xls(paste(your_mount_point,
+                                '01_RNAseq_RAW_Data/single_cell_meta_data_table_excel.xls',
+                                sep = ''), col_names = FALSE))
+
+colnames(metadata_table)[1:12] <- c("sample_ID","sample_path","age","tissue","gel","media","sex",
+                                   "sampleName","dataset","EGF_treatment","NRG1_treatment","EREG_treatment")
+
+metadata_table <- as.data.frame(lapply(metadata_table, function(x) gsub(".*:", "", x)))
+
+sample_paths <- paste(your_mount_point,subset(metadata_table, sample_ID %in% sample_lists)[,2],sep='')
+
+seurat_source_list <- lapply(sample_paths, function(x) Seurat::Read10X_h5(filename = x, use.names = TRUE, unique.features = TRUE))
+
+
+names(seurat_source_list) <- sample_lists
+
+
+seurat_object_list <- lapply(seq_along(seurat_source_list),
+                            function(i) Seurat::CreateSeuratObject(counts = seurat_source_list[[i]],
+                                                                   project = names(seurat_source_list)[i]))
+rm(seurat_source_list)
+
+# create the final seurat object that contains all the samples
+final_seurat_object <- merge(seurat_object_list[[1]], 
+                            y = seurat_object_list[2:length(seurat_object_list)])
+
+final_seurat_object[["percent.mt"]] <- ifelse(sample_species == "human",
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^MT-"),
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^mt-"))
+
+qc_min_genes <- 500
+qc_min_counts <- 500
+qc_max_genes <- 7000
+qc_max_counts <- 50000
+
+
+final_seurat_object <- subset(final_seurat_object, subset = nFeature_RNA >= qc_min_genes &
+                                nFeature_RNA <= qc_max_genes & percent.mt <= qc_max_mito &
+                                nCount_RNA >= qc_min_counts & nCount_RNA <= qc_max_counts)
+final_seurat_object <- SplitObject(final_seurat_object, split.by = "orig.ident")
+
+set.seed(888)
+for (i in 1:length(final_seurat_object)) {
+    final_seurat_object[[i]] <- SCTransform(final_seurat_object[[i]], 
+                                            verbose = FALSE, vars.to.regress = "percent.mt")
+}
+
+final_seurat_object_features <- SelectIntegrationFeatures(object.list = final_seurat_object, 
+                                                          nfeatures = 3000)
+final_seurat_object <- PrepSCTIntegration(object.list = final_seurat_object, 
+                                          anchor.features = final_seurat_object_features)
+
+final_seurat_object_anchors <- FindIntegrationAnchors(object.list = final_seurat_object, 
+                                           normalization.method = "SCT", 
+                                           anchor.features = final_seurat_object_features)
+
+final_seurat_object_integrated <- IntegrateData(anchorset = final_seurat_object_anchors, 
+                                     normalization.method = "SCT")
+
+set.seed(888)
+final_seurat_object_integrated <- RunPCA(final_seurat_object_integrated, verbose = FALSE)
+final_seurat_object_integrated <- RunUMAP(final_seurat_object_integrated, dims = 1:30)
+final_seurat_object_integrated <- FindNeighbors(final_seurat_object_integrated, dims = 1:30)
+final_seurat_object_integrated <- FindClusters(final_seurat_object_integrated, resolution = 0.08, algorithm = 1)
+
+DefaultAssay(final_seurat_object_integrated) <- "RNA"
+
+final_seurat_object_integrated <- NormalizeData(final_seurat_object_integrated, 
+                                            normalization.method = "LogNormalize", scale.factor =10000)
+
+DimPlot(final_seurat_object_integrated, reduction = "umap", shuffle=TRUE, repel = TRUE,label = TRUE) +  labs(color = "Cluster") + xlab("UMAP1") + ylab("UMAP2") + labs(title = NULL)
+
+DimPlot(final_seurat_object_integrated, reduction = "umap", group.by = 'orig.ident', shuffle=TRUE, repel = TRUE) +  labs(color = "Sample") + xlab("UMAP1") + ylab("UMAP2") + labs(title = NULL)
+
+Dotplot_Zhiwei_Version(final_seurat_object_integrated,LPO_list_supplement)
+```
+
+
 
