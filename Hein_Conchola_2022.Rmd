@@ -1,0 +1,157 @@
+---
+title: "Hein_Conchola_2022"
+author: "Zhiwei Xiao"
+date: "2/21/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE,warning=FALSE,echo=FALSE}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(data.table)
+library(hdf5r)
+library(readxl)
+library(leiden)
+library(sctransform)
+library(slingshot)
+library(SingleCellExperiment)
+library(RColorBrewer)
+library(rgl)
+library(grDevices)
+library(destiny)
+library(plotly)
+```
+
+## Figure 1
+```{r}
+your_mount_point <- "/Volumes/umms-spencejr/"
+sample_lists <- c("304-1")
+sample_species <- "human"
+qc_max_mito <- ifelse(sample_species == "human", 10, 5)
+
+general_cell_type_list <- c("EPCAM", "KRT18", "KRT8", "CLDN6", "VIM", "POSTN", "DCN", "TCF21", "COL1A2", "COL3A1", "TAGLN", "ACTA2", "PDGFRB", "PTPRC", "CD37", "CORO1A", "LCP1", "CD53", "LAPTM5", "CDH5", "CLDN5", "ESAM", "KDR", "FLT1", "S100B", "ELAVL4", "TUBB2B", "STMN2", "ASCL1", "NNAT", "GRP", "MPZ", "MKI67", "TOP2A", "CDK1", "TYMS", "H2AFZ", "STMN1", "LGR5")
+
+cell_lineage_list <- c("NKX2-1", "CDX2", "PAX8", "PDX1", "HHEX", "NES", "SOX1", "PAX6", "SOX17", "FOXA2", "SOX2", "HES1", "IRX1")
+
+bud_tip_list <- c("SOX9", "CPM", "FGF20", "SOX11", "HMGB2", "NPC2", "LGR5", "ETV5", "ETV4", "RNF43", "ZNRF3", "TESC")
+
+lung_epithelium_list <- c("SOX9", "SFTPC", "NPC2", "TESC", "CA2", "ETV5", "SOX2", "TP63", "KRT5", "KRT15", "IL33", "FOXL1", "FOXJ1", "CHGA", "SYN1", "MUC5AC", "MUC5B", "FOXA3", "SCGB1A1", "BPIFA1", "SCGB3A2", "CFTR", "SFTPB", "HOPX", "PDPN", "AQP5", "AGER", "ABCA3", "ASCL1")
+
+cell_lineage_list_updated <-  c("POU5F1", "SOX1", "SOX17", "FOXA2", "TBXT", "SOX2", "HHEX", "CDX2", "NKX2-1", "PAX8", "IRX1", "TP63", "PDX1", "ALB")
+
+spheroid_list_supplement <- c("EPCAM", "KRT18", "KRT8", "CLDN6", "POSTN", "COL1A1", "COL3A1", "TAGLN", "ACTA2", "PDGFRB", "CDH5", "CLDN5", "ESAM", "KDR", "FLT1", "S100B", "ELAVL4", "STMN2", "TUBB2B", "ASCL1", "NNAT", "GRP", "MPZ", "MKI67", "TOP2A", "CDK1")
+
+spheroid_list_main <- c("SOX2", "POU5F1", "SOX1", "TBXT", "SOX17", "FOXA2", "CDX2", "HHEX", "NKX2-1", "TP63", "PDX1", "PAX8", "ALB")
+
+spheroid_list_main2 <- c("SOX2", "POU5F1", "SOX1", "TBXT", "SOX17", "FOXA2", "CDX2", "HHEX", "NKX2-1", "TP63", "PDX1", "PAX8", "ALB", "FOXP1", "FOXP2", "SOX9")
+
+spheroid_list_main3 <- unique(c("SOX2", "POU5F1", "SOX1", "TBXT", "SOX17", "FOXA2", "FOXA3", "CDX2", "HOXC5", "HOXC6", "HOXB6", "HOXB8", "HOXC9", "HOXB9", "HHEX", "NKX2-1", "HOXA3", "HOXB4", "TP63", "TBX1", "PDX1", "PAX8", "PAX9", "HOXB1", "ALB", "ONECUT1", "FOXP1", "FOXP2", "FOXP4", "GATA6", "FOXA3", "CEBPA", "SOX9"))
+
+
+spheroid_list_main4 <- c("SOX2", "POU5F1", "SOX1", "TBXT", "SOX17", "FOXA2", "FOXP1", "FOXP2", "FOXP4", "GATA6", "CEBPA", "HHEX", "NKX2-1", "FOXA3", "CDX2", "TP63", "TBX1", "PDX1", "PAX8", "ALB")
+
+spheroid_list_main5 <- c("SOX2", "POU5F1", "NANOG", "SOX1", "TBXT", "SOX17", "FOXA2", "FOXP1", "FOXP2", "FOXP4", "GATA6", "CEBPA", "HHEX", "NKX2-1", "FOXA3", "CDX2", "HAND1", "TP63", "TBX1", "PDX1", "PAX8", "ALB")
+
+spheroid_list_main6 <- c("SOX2", "POU5F1", "NANOG", "SOX1", "TBXT", "SOX17", "FOXA2", "NANOS3", "TFAP2C", "FOXP1", "FOXP2", "FOXP4", "GATA6", "CEBPA", "HHEX", "NKX2-1", "FOXA3", "CDX2", "HAND1", "GATA3", "KRT7", "ISL1", "WNT6", "GABRP", "BMP4", "TFAP2A", "TP63", "TBX1", "PDX1", "PAX8", "ALB")
+
+
+spheroid_list_main7 <- unique(c("SOX2", "POU5F1", "NANOG", "SOX1", "TBXT", "SOX17", "FOXA2", "NANOS3", "TFAP2C", "FOXP1", "FOXP2", "FOXP4", "GATA6", "CEBPA", "HHEX", "NKX2-1", "FOXA3", "CDX2", "HAND1", "GATA3", "KRT7", "ISL1", "WNT6", "GABRP", "BMP4", "TFAP2A", "FOXF1", "LEF1", "TP63", "TBX1", "PDX1", "PAX8", "ALB"))
+
+spheroid_list_main_final1 <- unique(c("SOX2", "POU5F1", "NANOG", "SOX1", "TBXT", "SOX17", "FOXA2", "FOXP1", "FOXP2", "FOXP4", "GATA6", "CEBPA", "HHEX", "NKX2-1", "FOXA3", "CDX2", "TP63", "TBX1", "PDX1", "PAX8", "ALB"))
+
+spheroid_list_supplement_final1 <- unique(c("EPCAM", "KRT18", "KRT8", "CLDN6", "POSTN", "COL1A1", "COL3A1", "TAGLN", "ACTA2", "PDGFRB", "CDH5", "CLDN5", "ESAM", "KDR", "FLT1", "S100B", "ELAVL4", "STMN2", "TUBB2B", "ASCL1", "NNAT", "GRP", "MPZ", "KI67", "TOP2A", "CDK1", "NANOS3", "TFAP2C", "HAND1", "GATA3", "KRT7", "ISL1", "WNT6", "GABRP", "BMP4", "TFAP2A", "FOXF1", "LEF1"))
+
+spheroid_list_supplement_final2 <- unique(c("EPCAM", "KRT18", "KRT8", "CLDN6", "POSTN", "DCN", "COL1A2", "COL3A1", "CDH5", "CLDN5", "ESAM", "KDR", "S100B", "ELAVL4", "STMN2", "ASCL1", "MKI67", "TOP2A", "CDK1", "POU5F1", "NANOG", "TBXT", "NANOS3", "TFAP2C", "ISL1", "HAND1", "BMP4", "FOXF1", "LEF1")) 
+
+
+
+metadata_table <- as.data.frame(read_xls(paste(your_mount_point,
+                                "01_RNAseq_RAW_Data/single_cell_meta_data_table_excel.xls",
+                                sep = ""), col_names = FALSE))
+
+colnames(metadata_table)[1:12] <- c("sample_ID","sample_path","age","tissue","gel","media","sex",
+                                   "sampleName","dataset","EGF_treatment","NRG1_treatment","EREG_treatment")
+
+metadata_table <- as.data.frame(lapply(metadata_table, function(x) gsub(".*:", "", x)))
+
+
+sample_paths <- "/Volumes/mcomm-spencelab/01_RNAseq_RAW_Data/NovaA-304/Client/1789-RC/NovaA-304/Sample_1789-RC-1_GCGGGTAA-CTTAGTGC/outs/filtered_feature_bc_matrix.h5"
+
+seurat_source <- Seurat::Read10X_h5(filename = sample_paths, use.names = TRUE, unique.features = TRUE)
+
+final_seurat_object <- Seurat::CreateSeuratObject(counts = seurat_source,
+                                                                   project = sample_lists)
+
+final_seurat_object[["percent.mt"]] <- ifelse(sample_species == "human",
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^MT-"),
+                                                  PercentageFeatureSet(final_seurat_object, pattern = "^mt-"))
+
+qc_min_genes= 500
+qc_min_counts = 500
+qc_max_genes = 8000
+qc_max_counts = 50000
+
+
+final_seurat_object <- subset(final_seurat_object, subset = nFeature_RNA >= qc_min_genes &
+                                nFeature_RNA <= qc_max_genes & percent.mt <= qc_max_mito &
+                                nCount_RNA >= qc_min_counts & nCount_RNA <= qc_max_counts)
+
+set.seed(888)
+
+final_seurat_object <- SCTransform(final_seurat_object,
+                                        vars.to.regress = "percent.mt", verbose = FALSE)
+
+final_seurat_object <- RunPCA(final_seurat_object, verbose = FALSE)
+
+final_seurat_object <- RunUMAP(final_seurat_object, dims = 1:20)
+final_seurat_object <- FindNeighbors(final_seurat_object, dims = 1:20)
+final_seurat_object <- FindClusters(final_seurat_object, resolution = 0.2, algorithm = 4)
+
+DefaultAssay(final_seurat_object) <- "RNA"
+final_seurat_object <- NormalizeData(final_seurat_object, 
+                                            normalization.method = "LogNormalize", scale.factor =10000)
+
+
+test_dataset <- as.data.frame(final_seurat_object[["umap"]]@cell.embeddings)
+
+final_seurat_object <- final_seurat_object[,!colnames(final_seurat_object) %in% rownames(test_dataset[test_dataset$UMAP_1>20,])]
+
+set.seed(888)
+
+final_seurat_object <- SCTransform(final_seurat_object,
+                                        vars.to.regress = "percent.mt", verbose = FALSE)
+
+final_seurat_object <- RunPCA(final_seurat_object, verbose = FALSE)
+
+final_seurat_object <- RunUMAP(final_seurat_object, dims = 1:20)
+final_seurat_object <- FindNeighbors(final_seurat_object, dims = 1:20)
+final_seurat_object <- FindClusters(final_seurat_object, resolution = 0.2, algorithm = 4)
+
+DefaultAssay(final_seurat_object) <- "RNA"
+final_seurat_object <- NormalizeData(final_seurat_object, 
+                                            normalization.method = "LogNormalize", scale.factor =10000)
+
+Dotplot_Zhiwei_Version <- function(seurat_object, gene_list) {
+  
+DotPlot(seurat_object, features = gene_list) + RotatedAxis() +
+   scale_colour_gradientn(colors =                                                                                  c("lightgrey","#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"))+
+  guides(size=guide_legend(title = "Percent Expressed",override.aes=list(shape=21, colour="black", fill="white"))) +
+  labs(y="Cluster", x= NULL) +
+  guides(color = guide_colourbar(title = "Average Expression", ticks = TRUE, frame.colour = "black")) +
+  theme(axis.line.x.bottom = element_blank(),axis.line.y.left = element_blank())+ 
+  theme(panel.border=element_rect(colour="black",fill=NA,size=0.8))
+  
+}
+
+Dotplot_Zhiwei_Version(final_seurat_object,spheroid_list_supplement_final2)
+
+FeaturePlot(final_seurat_object, features = spheroid_list_supplement_final2,raster = FALSE,
+            slot = "data",pt.size = 0.6,order = TRUE) & RotatedAxis() & scale_colour_gradientn(colors =                                                                                  c("lightgrey","#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58")) &   xlab("UMAP1") & ylab("UMAP2")
+
+```
+
